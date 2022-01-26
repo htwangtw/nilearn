@@ -220,7 +220,7 @@ def signals_to_img_labels(signals, labels_img, mask_img=None,
 
 
 @_utils.fill_doc
-def img_to_signals_maps(imgs, maps_img, mask_img=None):
+def img_to_signals_maps(imgs, maps_img, mask_img=None, method='ols'):
     """Extract region signals from image.
 
     This function is applicable to regions defined by maps.
@@ -240,6 +240,9 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None):
         mask to apply to regions before extracting signals. Every point
         outside the mask is considered as background (i.e. outside of any
         region).
+    method : :obj:`str`, optional {'ols', 'rigid'}
+        Use ordinary least square or ridgid regression for signal extraction.
+        Default='ols'.
 
     Returns
     -------
@@ -288,8 +291,16 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None):
         labels = np.arange(maps_data.shape[-1], dtype=int)
 
     data = _safe_get_data(imgs, ensure_finite=True)
-    region_signals = linalg.lstsq(maps_data[maps_mask, :],
-                                  data[maps_mask, :])[0].T
+
+    # add an option to use OLS
+    if method == 'ridgid':
+        # rigid regression option
+        region_signals = linalg.lstsq(maps_data[maps_mask, :],
+                                    data[maps_mask, :])[0].T
+    elif method == 'ols':
+        region_signals = np.matmul(data[maps_mask, :], maps_data[maps_mask, :])
+    else:
+        NotImplementedError()
 
     return region_signals, list(labels)
 
