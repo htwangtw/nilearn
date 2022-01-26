@@ -376,6 +376,11 @@ def test_nifti_maps_masker_overlap():
         non_overlapping_masker.fit_transform(fmri_img)
 
 
+def test_nifti_maps_strategy():
+    # place holder to write this test
+    pass
+
+
 def test_standardization():
     rng = np.random.RandomState(42)
     data_shape = (9, 9, 5)

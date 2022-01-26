@@ -220,7 +220,7 @@ def signals_to_img_labels(signals, labels_img, mask_img=None,
 
 
 @_utils.fill_doc
-def img_to_signals_maps(imgs, maps_img, mask_img=None, method='ols'):
+def img_to_signals_maps(imgs, maps_img, mask_img=None, strategy='ridge'):
     """Extract region signals from image.
 
     This function is applicable to regions defined by maps.
@@ -240,8 +240,8 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, method='ols'):
         mask to apply to regions before extracting signals. Every point
         outside the mask is considered as background (i.e. outside of any
         region).
-    method : :obj:`str`, optional {'ols', 'rigid'}
-        Use ordinary least square or ridgid regression for signal extraction.
+    strategy : :obj:`str`, optional {'ols', 'ridge'}
+        Use ordinary least square or ridge regression for signal extraction.
         Default='ols'.
 
     Returns
@@ -262,6 +262,9 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, method='ols'):
         maps e.g. ICA
 
     """
+    if strategy not in ['ols', 'ridge']:
+        raise ValueError("Invalid strategy option: '{}'".format(strategy))
+
     maps_img = _utils.check_niimg_4d(maps_img)
     imgs = _utils.check_niimg_4d(imgs)
     affine = imgs.affine
@@ -293,15 +296,13 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, method='ols'):
     data = _safe_get_data(imgs, ensure_finite=True)
 
     # add an option to use OLS
-    if method == 'ridgid':
-        # rigid regression option
+    if strategy == 'ridge':
+        # ridge regression option
         region_signals = linalg.lstsq(maps_data[maps_mask, :],
-                                    data[maps_mask, :])[0].T
-    elif method == 'ols':
-        region_signals = np.matmul(data[maps_mask, :], maps_data[maps_mask, :])
-    else:
-        NotImplementedError()
-
+                                      data[maps_mask, :])[0].T
+    elif strategy == 'ols':
+        region_signals = np.matmul(data[maps_mask, :].T,
+                                   maps_data[maps_mask, :])
     return region_signals, list(labels)
 
 

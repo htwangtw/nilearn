@@ -20,16 +20,18 @@ class _ExtractionFunctor(object):
 
     func_name = 'nifti_maps_masker_extractor'
 
-    def __init__(self, _resampled_maps_img_, _resampled_mask_img_):
+    def __init__(self, _resampled_maps_img_, _resampled_mask_img_, strategy):
         self._resampled_maps_img_ = _resampled_maps_img_
         self._resampled_mask_img_ = _resampled_mask_img_
+        self.strategy = strategy
 
     def __call__(self, imgs):
         from ..regions import signal_extraction
 
         return signal_extraction.img_to_signals_maps(
             imgs, self._resampled_maps_img_,
-            mask_img=self._resampled_mask_img_)
+            mask_img=self._resampled_mask_img_,
+            strategy=self.strategy)
 
 
 @fill_doc
@@ -140,7 +142,7 @@ class NiftiMapsMasker(BaseMasker, CacheMixin):
     """
     # memory and memory_level are used by CacheMixin.
 
-    def __init__(self, maps_img, mask_img=None,
+    def __init__(self, maps_img, mask_img=None, strategy='ridge',
                  allow_overlap=True, smoothing_fwhm=None, standardize=False,
                  standardize_confounds=True, high_variance_confounds=False,
                  detrend=False, low_pass=None, high_pass=None, t_r=None,
@@ -152,6 +154,7 @@ class NiftiMapsMasker(BaseMasker, CacheMixin):
 
         # Maps Masker parameter
         self.allow_overlap = allow_overlap
+        self.strategy = strategy
 
         # Parameters for image.smooth
         self.smoothing_fwhm = smoothing_fwhm
@@ -503,7 +506,8 @@ class NiftiMapsMasker(BaseMasker, CacheMixin):
             _filter_and_extract, ignore=['verbose', 'memory', 'memory_level'])(
                 # Images
                 imgs, _ExtractionFunctor(self._resampled_maps_img_,
-                                         self._resampled_mask_img_),
+                                         self._resampled_mask_img_,
+                                         self.strategy),
                 # Pre-treatments
                 params,
                 confounds=confounds,
