@@ -544,4 +544,4 @@ class NiftiMapsMasker(BaseMasker, CacheMixin):
 
         logger.log("computing image from signals", verbose=self.verbose)
         return signal_extraction.signals_to_img_maps(
-            region_signals, self.maps_img_, mask_img=self.mask_img_)
+            region_signals, self._resampled_maps_img_, mask_img=self.mask_img_)
