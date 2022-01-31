@@ -9,6 +9,7 @@ or as weights in one image per region (maps).
 
 import numpy as np
 from scipy import linalg, ndimage
+from sklearn.linear_model import Lasso, Ridge
 
 from .. import _utils
 from .._utils.niimg import _safe_get_data
@@ -240,7 +241,7 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, strategy='ridge'):
         mask to apply to regions before extracting signals. Every point
         outside the mask is considered as background (i.e. outside of any
         region).
-    strategy : :obj:`str`, optional {'ols', 'ridge'}
+    strategy : :obj:`str`, optional {'ols', 'ridge', 'lasso'}
         Use ordinary least square or ridge regression for signal extraction.
         Default='ols'.
 
@@ -262,8 +263,6 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, strategy='ridge'):
         maps e.g. ICA
 
     """
-    if strategy not in ['ols', 'ridge']:
-        raise ValueError("Invalid strategy option: '{}'".format(strategy))
 
     maps_img = _utils.check_niimg_4d(maps_img)
     imgs = _utils.check_niimg_4d(imgs)
@@ -294,19 +293,40 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, strategy='ridge'):
         labels = np.arange(maps_data.shape[-1], dtype=int)
 
     data = _safe_get_data(imgs, ensure_finite=True)
-
-    # add an option to use OLS
-    if strategy == 'ridge':
+    trimmed_maps_data = maps_data[maps_mask, :]
+    data = data[maps_mask, :]
+    if strategy == 'original':
         # ridge regression option
-        region_signals = linalg.lstsq(maps_data[maps_mask, :],
-                                      data[maps_mask, :])[0].T
-    elif strategy == 'ols':
-        region_signals = np.matmul(data[maps_mask, :].T,
-                                   maps_data[maps_mask, :])
+        region_signals = linalg.lstsq(trimmed_maps_data,
+                                      data)[0].T
+    elif strategy == 'simple':
+        region_signals = np.matmul(data.T,
+                                   trimmed_maps_data)
+    else:
+        trimmed_maps_data = trimmed_maps_data.T
+        inverse_transform_mat = np.concatenate([np.ones([1, trimmed_maps_data.shape[1]]), trimmed_maps_data])
+        if strategy == 'ols':
+            transform_mat = np.linalg.pinv(inverse_transform_mat)
+            region_signals = np.matmul(data.T,
+                                       transform_mat)
+        elif strategy == 'lasso':
+            transform_mat = Lasso()
+            transform_mat.fit(
+                    inverse_transform_mat.transpose(), data,
+                )
+            region_signals = transform_mat.coef_.copy(order='C')
+        elif strategy == 'ridge':
+            transform_mat = Ridge()
+            transform_mat.fit(
+                inverse_transform_mat.transpose(), data,
+                )
+            region_signals = transform_mat.coef_.copy(order='C')
+        else:
+            raise ValueError("Invalid strategy option: '{}'".format(strategy))
     return region_signals, list(labels)
 
 
-def signals_to_img_maps(region_signals, maps_img, mask_img=None):
+def signals_to_img_maps(region_signals, maps_img, mask_img=None, strategy='ridge'):
     """Create image from region signals defined as maps.
 
     region_signals, mask_img must have the same shapes and affines.
@@ -362,8 +382,12 @@ def signals_to_img_maps(region_signals, maps_img, mask_img=None):
         maps_mask = np.ones(maps_data.shape[:3], dtype=bool)
 
     assert(maps_mask.shape == maps_data.shape[:3])
-
-    data = np.dot(region_signals, maps_data[maps_mask, :].T)
+    if strategy in ['original', 'simple']:
+        data = np.dot(region_signals, maps_data[maps_mask, :].T)
+    else:
+        trimmed_maps_data = maps_data[maps_mask, :].T
+        inverse_transform_mat = np.concatenate([np.ones([1, trimmed_maps_data.shape[1]]), trimmed_maps_data])
+        data = np.matmul(region_signals, inverse_transform_mat)
     return masking.unmask(data, new_img_like(maps_img, maps_mask, affine))
 
 
