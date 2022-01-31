@@ -299,9 +299,6 @@ def img_to_signals_maps(imgs, maps_img, mask_img=None, strategy='ridge'):
         # ridge regression option
         region_signals = linalg.lstsq(trimmed_maps_data,
                                       data)[0].T
-    elif strategy == 'simple':
-        region_signals = np.matmul(data.T,
-                                   trimmed_maps_data)
     else:
         trimmed_maps_data = trimmed_maps_data.T
         inverse_transform_mat = np.concatenate([np.ones([1, trimmed_maps_data.shape[1]]), trimmed_maps_data])
@@ -382,7 +379,7 @@ def signals_to_img_maps(region_signals, maps_img, mask_img=None, strategy='ridge
         maps_mask = np.ones(maps_data.shape[:3], dtype=bool)
 
     assert(maps_mask.shape == maps_data.shape[:3])
-    if strategy in ['original', 'simple']:
+    if strategy == 'original':
         data = np.dot(region_signals, maps_data[maps_mask, :].T)
     else:
         trimmed_maps_data = maps_data[maps_mask, :].T
