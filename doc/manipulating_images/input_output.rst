@@ -6,6 +6,145 @@ Input and output: neuroimaging data representation
 
 |
 
+Understanding data in neuroimaging research
+===========================================
+
+In a neuroimaging study, researchers collect two tpyes of data: neuroimaging 
+and phenotypic/behavioral data. There are two different types of neuroimaging
+data structure that are supported by nilearn: volumetric and surface data.
+
+Volumetric data and the NifTi data structure
+--------------------------------------------
+
+The `NifTi <http://nifti.nimh.nih.gov/>`_ data structure (also used in
+Analyze files) is the standard way of sharing volumetric data in neuroimaging
+research. Nilearn works with data stored as in the Nifti structure (via the 
+nibabel_ package). A NifTi file could contain raw data, preprocessed data, or 
+information to annotate neuroimaging data (e.g. labels of different brain 
+regions). Three main components are:
+
+:data:
+    raw scans in form of a numpy array: ``data = nilearn.image.get_data(img)``
+:affine:
+    returns the transformation matrix that maps
+    from voxel indices of the numpy array to actual real-world
+    locations of the brain:
+    ``affine = img.affine``
+:header:
+    low-level information about the data (slice duration, etc.):
+    ``header = img.header``
+
+If you need to load the data without using nilearn, read the nibabel_
+documentation.
+
+Note: For older versions of nibabel_, affine and header can be retrieved
+with ``get_affine()`` and ``get_header()``.
+
+.. warning:: if you create images directly with nibabel_, beware of int64
+             images. the default integer type used by Numpy is (signed) 64-bit.
+             Several popular neuroimaging tools do not handle int64 Nifti
+             images, so if you build Nifti images directly from Numpy arrays it
+             is recommended to specify a smaller integer type, for example::
+
+               np.array([1, 2000, 7], dtype="int32")
+
+
+
+.. topic:: **Dataset formatting: data shape**
+
+    It is important to appreciate two main representations for
+    storing and accessing more than one Nifti images, that is sets
+    of MRI scans:
+
+    - a big 4D matrix representing (3D MRI + 1D for time), stored in a single
+      Nifti file.
+      `FSL <http://www.fmrib.ox.ac.uk/fsl/>`_ users tend to
+      prefer this format.
+    - several 3D matrices representing each time point (single 3D volume) of the
+      session, stored in set of 3D Nifti or analyse files.
+      `SPM <http://www.fil.ion.ucl.ac.uk/spm/>`_ users tend
+      to prefer this format.
+
+.. _niimg:
+
+Niimg-like objects
+-------------------
+
+Nilearn functions take as input argument what we call "Niimg-like
+objects":
+
+**Niimg:** A Niimg-like object can be one of the following:
+
+  * A string or pathlib.Path object with a file path to a Nifti or Analyse image
+  * An ``SpatialImage`` from nibabel, ie an object exposing ``get_fdata()``
+    method and ``affine`` attribute, typically a ``Nifti1Image`` from nibabel_.
+
+**Niimg-4D:** Similarly, some functions require 4D Nifti-like
+data, which we call Niimgs or Niimg-4D. Accepted input arguments are:
+
+  * A path to a 4D Nifti image
+  * List of paths to 3D Nifti images
+  * 4D Nifti-like object
+  * List of 3D Nifti-like objects
+
+.. topic:: **Image affines**
+
+   If you provide a sequence of Nifti images, all of them must have the same
+   affine.
+
+.. topic:: **Decreasing memory used when loading Nifti images**
+
+   When Nifti images are stored compressed (.nii.gz), loading them directly
+   consumes more memory. As a result, large 4D images may
+   raise "MemoryError", especially on smaller computers and when using Nilearn
+   routines that require intensive 4D matrix operations. One step to improve
+   the situation may be to decompress the data onto disk as an initial step.
+   If multiple images are loaded into memory sequentially, another solution may
+   be to `uncache <https://nipy.org/nibabel/images_and_memory.html#using-uncache>`_ 
+   one before loading and performing operations on another.
+
+Surface data and supported file formats
+---------------------------------------
+
+Volumentric data can be projected on to surface after preprocessing. 
+Surface data comes in many formats and nilearn currently can support X.
+For details of each type of format and how they relate to each other,
+please see nibabel documentation.
+To load surface data you need two kinds of files: surface mesh and the value to 
+be projected on the mesh. The projected data can be labels, or functional data.
+this is how to load things in nilearn blah blah
+Link to the relevant module of nilearn.
+
+
+Text files: phenotype or behavior
+----------------------------------
+
+Phenotypic or behavioral data are often provided as text, CSV
+(Comma Separated Values), or TSV (Tab Separated Values) file. They
+can be loaded with `pd.read_csv` but you may have to specify some options
+(typically `sep` if fields aren't delimited with a comma).
+
+For the Haxby datasets, we can load the categories of the images
+presented to the subject::
+
+    >>> from nilearn import datasets
+    >>> haxby_dataset = datasets.fetch_haxby()  # doctest: +SKIP
+    >>> import pandas as pd  # doctest: +SKIP
+    >>> labels = pd.read_csv(haxby_dataset.session_target[0], sep=" ")  # doctest: +SKIP
+    >>> stimuli = labels['labels']  # doctest: +SKIP
+    >>> print(stimuli.unique())  # doctest: +SKIP
+    ['bottle' 'cat' 'chair' 'face' 'house' 'rest' 'scissors' 'scrambledpix'
+     'shoe']
+
+.. topic:: **Reading CSV with pandas**
+
+    `Pandas <http://pandas.pydata.org/>`_ is a powerful package to read
+    data from CSV files and manipulate them.
+
+|
+
+.. _nibabel: http://nipy.sourceforge.net/nibabel/
+
 .. currentmodule:: nilearn.image
 
 .. _loading_data:
@@ -154,126 +293,4 @@ follows::
     You can check in which directory nilearn will store the data with the
     function :func:`nilearn.datasets.get_data_dirs`.
 
-
 |
-
-Understanding neuroimaging data
-===============================
-
-Nifti and Analyze data
------------------------
-
-For volumetric data, nilearn works with data stored as in the Nifti
-structure (via the nibabel_ package).
-
-The `NifTi <http://nifti.nimh.nih.gov/>`_ data structure (also used in
-Analyze files) is the standard way of sharing data in neuroimaging
-research. Three main components are:
-
-:data:
-    raw scans in form of a numpy array: ``data = nilearn.image.get_data(img)``
-:affine:
-    returns the transformation matrix that maps
-    from voxel indices of the numpy array to actual real-world
-    locations of the brain:
-    ``affine = img.affine``
-:header:
-    low-level information about the data (slice duration, etc.):
-    ``header = img.header``
-
-If you need to load the data without using nilearn, read the nibabel_
-documentation.
-
-Note: For older versions of nibabel_, affine and header can be retrieved
-with ``get_affine()`` and ``get_header()``.
-
-.. warning:: if you create images directly with nibabel_, beware of int64
-             images. the default integer type used by Numpy is (signed) 64-bit.
-             Several popular neuroimaging tools do not handle int64 Nifti
-             images, so if you build Nifti images directly from Numpy arrays it
-             is recommended to specify a smaller integer type, for example::
-
-               np.array([1, 2000, 7], dtype="int32")
-
-
-
-.. topic:: **Dataset formatting: data shape**
-
-    It is important to appreciate two main representations for
-    storing and accessing more than one Nifti images, that is sets
-    of MRI scans:
-
-    - a big 4D matrix representing (3D MRI + 1D for time), stored in a single
-      Nifti file.
-      `FSL <http://www.fmrib.ox.ac.uk/fsl/>`_ users tend to
-      prefer this format.
-    - several 3D matrices representing each time point (single 3D volume) of the
-      session, stored in set of 3D Nifti or analyse files.
-      `SPM <http://www.fil.ion.ucl.ac.uk/spm/>`_ users tend
-      to prefer this format.
-
-.. _niimg:
-
-Niimg-like objects
--------------------
-
-Nilearn functions take as input argument what we call "Niimg-like
-objects":
-
-**Niimg:** A Niimg-like object can be one of the following:
-
-  * A string or pathlib.Path object with a file path to a Nifti or Analyse image
-  * An ``SpatialImage`` from nibabel, ie an object exposing ``get_fdata()``
-    method and ``affine`` attribute, typically a ``Nifti1Image`` from nibabel_.
-
-**Niimg-4D:** Similarly, some functions require 4D Nifti-like
-data, which we call Niimgs or Niimg-4D. Accepted input arguments are:
-
-  * A path to a 4D Nifti image
-  * List of paths to 3D Nifti images
-  * 4D Nifti-like object
-  * List of 3D Nifti-like objects
-
-.. topic:: **Image affines**
-
-   If you provide a sequence of Nifti images, all of them must have the same
-   affine.
-
-.. topic:: **Decreasing memory used when loading Nifti images**
-
-   When Nifti images are stored compressed (.nii.gz), loading them directly
-   consumes more memory. As a result, large 4D images may
-   raise "MemoryError", especially on smaller computers and when using Nilearn
-   routines that require intensive 4D matrix operations. One step to improve
-   the situation may be to decompress the data onto disk as an initial step.
-   If multiple images are loaded into memory sequentially, another solution may
-   be to `uncache <https://nipy.org/nibabel/images_and_memory.html#using-uncache>`_ one before loading and performing operations on another.
-
-Text files: phenotype or behavior
-----------------------------------
-
-Phenotypic or behavioral data are often provided as text or CSV
-(Comma Separated Values) file. They
-can be loaded with `pd.read_csv` but you may have to specify some options
-(typically `sep` if fields aren't delimited with a comma).
-
-For the Haxby datasets, we can load the categories of the images
-presented to the subject::
-
-    >>> from nilearn import datasets
-    >>> haxby_dataset = datasets.fetch_haxby()  # doctest: +SKIP
-    >>> import pandas as pd  # doctest: +SKIP
-    >>> labels = pd.read_csv(haxby_dataset.session_target[0], sep=" ")  # doctest: +SKIP
-    >>> stimuli = labels['labels']  # doctest: +SKIP
-    >>> print(stimuli.unique())  # doctest: +SKIP
-    ['bottle' 'cat' 'chair' 'face' 'house' 'rest' 'scissors' 'scrambledpix'
-     'shoe']
-
-.. topic:: **Reading CSV with pandas**
-
-    `Pandas <http://pandas.pydata.org/>`_ is a powerful package to read
-    data from CSV files and manipulate them.
-
-|
-
-.. _nibabel: http://nipy.sourceforge.net/nibabel/
